@@ -2,6 +2,7 @@ import type { TargetSummary } from '../session-protocol'
 import type { ConnectionState, XTerminal } from '../types'
 import { el } from '../util/dom'
 import { onTap } from '../util/tap'
+import { suppressSynthesisedMouse } from './keyboard-controller'
 
 const PROCESS_STATE_LABELS: Record<TargetSummary['processState'], string> = {
 	'not-started': '○ Not started',
@@ -75,6 +76,11 @@ export function createTargetPicker(term: XTerminal) {
 				term.selectTarget?.(target.id)
 				close()
 			}
+			// Same touchend guard as the d-pad keys and drawer close button: the
+			// picker hides synchronously in the touchend handler, so the browser's
+			// synthesised click would land on the terminal beneath and re-focus its
+			// hidden textarea — summoning the soft keyboard (mobile keyboard bug).
+			suppressSynthesisedMouse(row)
 			onTap(row, select)
 			row.addEventListener('keydown', (event) => {
 				if (event.key === 'Enter' || event.key === ' ') {
@@ -90,6 +96,9 @@ export function createTargetPicker(term: XTerminal) {
 					'aria-label': `Restart target ${target.name}`,
 				})
 				restart.textContent = 'Restart'
+				// Restart calls stopPropagation() in its onTap handler, so the row's
+				// own guard never sees this touchend — suppress on the button itself.
+				suppressSynthesisedMouse(restart)
 				onTap(restart, (event) => {
 					event.stopPropagation()
 					term.restartTarget?.(target.id)
@@ -125,6 +134,8 @@ export function createTargetPicker(term: XTerminal) {
 		if (open) renderList()
 	}
 
+	// Backdrop dismiss hides the overlay synchronously too — same guard as rows.
+	suppressSynthesisedMouse(backdrop)
 	onTap(badge, openPicker)
 	onTap(backdrop, close)
 	term.onTargetsChange?.(renderIfVisible)

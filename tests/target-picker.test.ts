@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { createTargetPicker } from '../src/controls/target-picker'
 import type { TargetSummary } from '../src/session-protocol'
 import type { ConnectionState, ConnectionStatus, XTerminal } from '../src/types'
+import { _resetTouchGuard } from '../src/util/tap'
 import { mockTerminal } from './fixtures'
 
 interface PickerMockTerm extends XTerminal {
@@ -81,6 +82,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+	_resetTouchGuard()
 	GlobalRegistrator.unregister()
 })
 
@@ -201,6 +203,51 @@ describe('target picker (T5)', () => {
 		if (!(backdrop instanceof HTMLElement)) throw new Error('no backdrop')
 		backdrop.click()
 		expect(picker.element.classList.contains('open')).toBe(false)
+	})
+
+	test('touchend on rows/restart/backdrop is preventDefault-ed so no keyboard is summoned', () => {
+		const term = mockPickerTerm()
+		const picker = createTargetPicker(term)
+		document.body.append(picker.badge, picker.element)
+		term.setTargets([target('live', 'process-running'), target('dead', 'process-exited')])
+		term.setCurrentTargetId('live')
+		picker.open()
+
+		// The picker hides synchronously in the touchend handler; without the
+		// guard the browser's synthesised click lands on the terminal beneath and
+		// re-focuses its hidden textarea — opening the soft keyboard on mobile.
+		const row = picker.element.querySelector('[data-target-id="dead"]')
+		if (!(row instanceof HTMLElement)) throw new Error('no row')
+		const rowEvent = new TouchEvent('touchend', { cancelable: true })
+		row.dispatchEvent(rowEvent)
+		expect(rowEvent.defaultPrevented).toBe(true)
+		expect(term.selected).toEqual(['dead'])
+		expect(picker.element.classList.contains('open')).toBe(false)
+
+		// Restart calls stopPropagation() in its own handler, so it needs its own
+		// guard rather than inheriting the row's.
+		picker.open()
+		const restart = picker.element.querySelector('.wt-target-restart')
+		if (!(restart instanceof HTMLButtonElement)) throw new Error('no restart button')
+		const restartEvent = new TouchEvent('touchend', { cancelable: true })
+		restart.dispatchEvent(restartEvent)
+		expect(restartEvent.defaultPrevented).toBe(true)
+		expect(term.restarted).toEqual(['dead'])
+
+		picker.open()
+		const backdrop = picker.element.querySelector('.wt-target-picker-backdrop')
+		if (!(backdrop instanceof HTMLElement)) throw new Error('no backdrop')
+		const backdropEvent = new TouchEvent('touchend', { cancelable: true })
+		backdrop.dispatchEvent(backdropEvent)
+		expect(backdropEvent.defaultPrevented).toBe(true)
+		expect(picker.element.classList.contains('open')).toBe(false)
+
+		// The badge intentionally keeps the synthesised mousedown: it transfers
+		// focus away from the terminal textarea (see util/tap.ts), and the picker
+		// is already open above the badge when the synthesised click arrives.
+		const badgeEvent = new TouchEvent('touchend', { cancelable: true })
+		picker.badge.dispatchEvent(badgeEvent)
+		expect(badgeEvent.defaultPrevented).toBe(false)
 	})
 
 	test('47-character names stay intact in the DOM with full-name title and aria label', () => {
