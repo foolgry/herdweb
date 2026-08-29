@@ -76,6 +76,38 @@ test.describe('explicit target picker (T5)', () => {
 		await expect(page.locator('button.wt-target-badge')).toHaveText('Two', { timeout: 15_000 })
 		await expect(page.locator('body')).toContainText('target-two-ready')
 	})
+
+	test('switching targets via touch does not summon the soft keyboard', async ({ page, serve }) => {
+		await page.goto(serve.url)
+		const badge = page.locator('button.wt-target-badge')
+		await expect(badge).toBeVisible({ timeout: 15_000 })
+		await expect(badge).toHaveText('One')
+		await expect(page.locator('body')).toContainText('target-one-ready')
+
+		await badge.tap()
+		const picker = page.locator('.wt-target-picker.open')
+		await expect(picker).toBeVisible()
+
+		await picker.locator('[data-target-id="two"]').tap()
+		await expect(picker).toHaveCount(0)
+		await expect(badge).toHaveText('Two', { timeout: 15_000 })
+
+		// Regression (mobile soft keyboard): the picker hides synchronously in
+		// the touchend handler; an unsuppressed synthesised click would land on
+		// the terminal beneath and focus xterm's hidden textarea — sliding the
+		// soft keyboard up. Poll well past the ~4ms synthesis window.
+		await expect
+			.poll(
+				() =>
+					page.evaluate(
+						() =>
+							document.activeElement?.tagName !== 'TEXTAREA' &&
+							!document.activeElement?.closest('.xterm'),
+					),
+				{ timeout: 2_000 },
+			)
+			.toBe(true)
+	})
 })
 
 test.describe('single mode (T5)', () => {
