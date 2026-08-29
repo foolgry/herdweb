@@ -6,12 +6,14 @@ import { isKeyboardOpen } from '../util/keyboard'
 const KEYBOARD_TOGGLE_DEBOUNCE_MS = 300
 
 /**
- * Suppress the synthesised mousedown after touchend so the button never
+ * Suppress the synthesised mousedown after touchend so the element never
  * steals focus from the terminal textarea (探针③). Shared by keyboard-toggle
- * buttons and the floating d-pad keys.
+ * buttons, the floating d-pad keys, and the target-picker rows/backdrop
+ * (where the synthesised click would land on the terminal once the overlay
+ * hides and re-focus its textarea — summoning the soft keyboard).
  */
-export function suppressSynthesisedMouse(button: HTMLButtonElement): void {
-	button.addEventListener('touchend', (e) => e.preventDefault())
+export function suppressSynthesisedMouse(element: HTMLElement): void {
+	element.addEventListener('touchend', (e) => e.preventDefault())
 }
 
 /**
