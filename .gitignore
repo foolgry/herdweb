@@ -15,3 +15,6 @@ herdweb.config.ts
 herdweb.config.js
 herdweb.config.local.ts
 herdweb.config.local.js
+
+# Local runtime logs
+*.log
