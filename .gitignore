@@ -20,3 +20,6 @@ herdweb.config.local.js
 retro/*.lock
 # Local scratch dir (e.g. design-reference clips linked from docs/designs)
 /tmp/
+
+# Local runtime logs
+*.log
