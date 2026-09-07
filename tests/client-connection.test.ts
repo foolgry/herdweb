@@ -1195,6 +1195,43 @@ describe('client connection state machine', () => {
 		expect(frames.some((frame) => frame.type === 'resize')).toBe(false)
 	})
 
+	test('resize during a disconnected socket reaches the replacement attach', async () => {
+		const oldSocket = await freshSynced()
+		const terminal = harness.terminal as FakeTerminal
+		oldSocket.close()
+		terminal.cols = 137
+		terminal.rows = 43
+		window.__herdwebResize?.()
+		await vi.advanceTimersByTimeAsync(1_000)
+
+		const nextSocket = currentSocket()
+		openWithAttach(nextSocket)
+		const attach = parseSent(nextSocket)
+			.filter((frame) => frame.type === 'attach-target')
+			.at(-1)
+		expect(attach).toMatchObject({ type: 'attach-target', cols: 137, rows: 43 })
+	})
+
+	test('hidden suspension carries a viewport resize into the next connection', async () => {
+		await freshSynced()
+		const terminal = harness.terminal as FakeTerminal
+		hidePage()
+		await vi.advanceTimersByTimeAsync(60_000)
+
+		terminal.cols = 131
+		terminal.rows = 41
+		window.__herdwebResize?.()
+		showPage()
+		await vi.advanceTimersByTimeAsync(0)
+
+		const nextSocket = currentSocket()
+		openWithAttach(nextSocket)
+		const attach = parseSent(nextSocket)
+			.filter((frame) => frame.type === 'attach-target')
+			.at(-1)
+		expect(attach).toMatchObject({ type: 'attach-target', cols: 131, rows: 41 })
+	})
+
 	test('buffered input detects a persistently stuck OPEN socket after settling', async () => {
 		const socket = await freshSynced()
 		socket.bufferedAmount = 1
@@ -1320,6 +1357,27 @@ describe('client connection state machine', () => {
 		} finally {
 			disposeOverlay()
 		}
+	})
+
+	test('resume probe resends the terminal size changed while the page was hidden', async () => {
+		const socket = await freshSynced()
+		const terminal = harness.terminal as FakeTerminal
+		hidePage()
+		// A mobile browser can update xterm's local geometry while its page is
+		// backgrounded without delivering the resize event until foregrounding.
+		terminal.cols = 140
+		terminal.rows = 50
+		showPage()
+
+		const probe = lastPing(socket)
+		if (typeof probe?.nonce !== 'string') throw new Error('missing resume probe ping')
+		receive(socket, { type: 'pong', nonce: probe.nonce })
+
+		expect(parseSent(socket).slice(-1)[0]).toMatchObject({
+			type: 'resize',
+			cols: 140,
+			rows: 50,
+		})
 	})
 
 	test('resume probe in flight drops keyboard input without failConnection', async () => {
