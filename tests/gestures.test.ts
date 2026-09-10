@@ -1,6 +1,7 @@
-import { describe, expect, test, vi } from 'vitest'
-import { isDoubleTap } from '../src/gestures/double-tap'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { attachDoubleTapGesture, isDoubleTap } from '../src/gestures/double-tap'
 import { createGestureLock, resetLock, tryLock } from '../src/gestures/lock'
+import { LONG_PRESS_MS, attachLongPressGesture } from '../src/gestures/long-press'
 import { clampFontSize, touchDistance } from '../src/gestures/pinch'
 import {
 	attachScrollGesture,
@@ -125,6 +126,12 @@ describe('tryLock', () => {
 		const lock = createGestureLock()
 		tryLock(lock, 'pinch')
 		expect(tryLock(lock, 'pinch')).toBe(false)
+	})
+
+	test('claims long-press when unclaimed', () => {
+		const lock = createGestureLock()
+		expect(tryLock(lock, 'long-press')).toBe(true)
+		expect(lock.current).toBe('long-press')
 	})
 })
 
@@ -937,5 +944,232 @@ describe('attachScrollGesture', () => {
 
 		document.body.removeChild(screen)
 		vi.unstubAllGlobals()
+	})
+})
+
+describe('attachLongPressGesture', () => {
+	function makeScreen(width: number, height: number): HTMLElement {
+		const measureSpy = vi.fn(() => ({
+			left: 0,
+			top: 0,
+			width,
+			height,
+			right: width,
+			bottom: height,
+			x: 0,
+			y: 0,
+			toJSON() {},
+		}))
+		const el = document.createElement('div')
+		el.className = 'xterm-screen'
+		Object.defineProperty(el, 'getBoundingClientRect', { value: measureSpy })
+		return el
+	}
+
+	function makeTouch(screen: HTMLElement, clientX: number, clientY: number, identifier = 0): Touch {
+		return {
+			identifier,
+			target: screen,
+			clientX,
+			clientY,
+			force: 1,
+			radiusX: 1,
+			radiusY: 1,
+			rotationAngle: 0,
+			pageX: clientX,
+			pageY: clientY,
+			screenX: clientX,
+			screenY: clientY,
+		} as Touch
+	}
+
+	function dispatchGesture(
+		screen: HTMLElement,
+		type: string,
+		touches: Touch[],
+		changedTouches = touches,
+	): void {
+		screen.dispatchEvent(
+			new TouchEvent(type, {
+				bubbles: true,
+				cancelable: true,
+				touches,
+				targetTouches: touches,
+				changedTouches,
+			}),
+		)
+	}
+
+	function mount(
+		cols = 80,
+		rows = 24,
+	): {
+		screen: HTMLElement
+		term: ReturnType<typeof mockTerminal> & { cols: number; rows: number }
+		sent: string[]
+		lock: ReturnType<typeof createGestureLock>
+	} {
+		const sent: string[] = []
+		const term = {
+			...mockTerminal(),
+			cols,
+			rows,
+			input(data: string) {
+				sent.push(data)
+			},
+		}
+		const lock = createGestureLock()
+		const screen = makeScreen(800, 480)
+		document.body.appendChild(screen)
+		attachLongPressGesture(term, lock)
+		return { screen, term, sent, lock }
+	}
+
+	beforeEach(() => {
+		vi.useFakeTimers()
+	})
+
+	afterEach(() => {
+		for (const el of document.querySelectorAll('.xterm-screen')) {
+			el.remove()
+		}
+		vi.useRealTimers()
+	})
+
+	test('holding still for 500ms emits SGR right-click down then up', () => {
+		const { screen, sent } = mount()
+		const touch = makeTouch(screen, 400, 240)
+		dispatchGesture(screen, 'touchstart', [touch])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		expect(sent).toEqual(['\x1b[<2;41;13M', '\x1b[<2;41;13m'])
+	})
+
+	test('emitted coordinates match the 1-based touchToCell formula', () => {
+		const cols = 80
+		const rows = 24
+		const width = 800
+		const height = 480
+		const clientX = 100
+		const clientY = 200
+		const expectedCol = Math.min(cols, Math.max(1, Math.floor((clientX / width) * cols) + 1))
+		const expectedRow = Math.min(rows, Math.max(1, Math.floor((clientY / height) * rows) + 1))
+
+		const { screen, sent } = mount(cols, rows)
+		dispatchGesture(screen, 'touchstart', [makeTouch(screen, clientX, clientY)])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+
+		expect(expectedCol).toBe(11)
+		expect(expectedRow).toBe(11)
+		expect(sent).toEqual([
+			`\x1b[<2;${expectedCol};${expectedRow}M`,
+			`\x1b[<2;${expectedCol};${expectedRow}m`,
+		])
+	})
+
+	test('releasing before 500ms emits nothing', () => {
+		const { screen, sent } = mount()
+		const touch = makeTouch(screen, 400, 240)
+		dispatchGesture(screen, 'touchstart', [touch])
+		vi.advanceTimersByTime(LONG_PRESS_MS - 1)
+		dispatchGesture(screen, 'touchend', [], [touch])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		expect(sent).toEqual([])
+	})
+
+	test('moving more than 10px before 500ms emits nothing', () => {
+		const { screen, sent } = mount()
+		const start = makeTouch(screen, 400, 240)
+		dispatchGesture(screen, 'touchstart', [start])
+		dispatchGesture(screen, 'touchmove', [makeTouch(screen, 400, 251)])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		expect(sent).toEqual([])
+	})
+
+	test('a second finger down cancels the long-press', () => {
+		const { screen, sent } = mount()
+		dispatchGesture(screen, 'touchstart', [
+			makeTouch(screen, 400, 240, 0),
+			makeTouch(screen, 420, 260, 1),
+		])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		expect(sent).toEqual([])
+	})
+})
+
+describe('attachDoubleTapGesture', () => {
+	function makeScreen(): HTMLElement {
+		const el = document.createElement('div')
+		el.className = 'xterm-screen'
+		return el
+	}
+
+	function makeTouch(screen: HTMLElement, clientX: number, clientY: number): Touch {
+		return {
+			identifier: 0,
+			target: screen,
+			clientX,
+			clientY,
+			force: 1,
+			radiusX: 1,
+			radiusY: 1,
+			rotationAngle: 0,
+			pageX: clientX,
+			pageY: clientY,
+			screenX: clientX,
+			screenY: clientY,
+		} as Touch
+	}
+
+	function dispatch(screen: HTMLElement, type: string, touch: Touch, ended = false): void {
+		screen.dispatchEvent(
+			new TouchEvent(type, {
+				bubbles: true,
+				cancelable: true,
+				touches: ended ? [] : [touch],
+				targetTouches: ended ? [] : [touch],
+				changedTouches: [touch],
+			}),
+		)
+	}
+
+	const doubleTapData = '\x02z'
+
+	beforeEach(() => {
+		vi.useFakeTimers()
+	})
+
+	afterEach(() => {
+		for (const el of document.querySelectorAll('.xterm-screen')) {
+			el.remove()
+		}
+		vi.useRealTimers()
+	})
+
+	test('a long-press then a tap does not fire the double-tap action', () => {
+		const sent: string[] = []
+		const term = {
+			...mockTerminal(),
+			input(data: string) {
+				sent.push(data)
+			},
+		}
+		const screen = makeScreen()
+		document.body.appendChild(screen)
+		attachDoubleTapGesture(
+			term,
+			{ enabled: true, data: doubleTapData, maxInterval: 300 },
+			() => false,
+		)
+
+		const hold = makeTouch(screen, 100, 100)
+		dispatch(screen, 'touchstart', hold)
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		dispatch(screen, 'touchend', hold, true)
+
+		const tap = makeTouch(screen, 100, 100)
+		dispatch(screen, 'touchstart', tap)
+		dispatch(screen, 'touchend', tap, true)
+
+		expect(sent).toEqual([])
 	})
 })
