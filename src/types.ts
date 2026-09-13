@@ -15,6 +15,12 @@ export type ButtonAction =
 	| { readonly type: 'voice-input' }
 	| { readonly type: 'image-upload' }
 	| { readonly type: 'notify-panel' }
+	| SelectModeAction
+
+/** Toggle the frozen, plain-text terminal selection overlay. */
+export interface SelectModeAction {
+	readonly type: 'select-mode'
+}
 
 /** A generic control button definition used by toolbar and drawer */
 export interface ControlButton {
@@ -389,6 +395,16 @@ export interface XTerminal {
 		active: {
 			cursorX: number
 			cursorY: number
+			/** Total rows in the active xterm buffer, including scrollback. */
+			readonly length?: number
+			/** Read one plain-text row from the active xterm buffer. */
+			getLine?: (index: number) =>
+				| {
+						translateToString: (trimRight?: boolean) => string
+				  }
+				| undefined
+			/** Current top row of the active viewport, including scrollback. */
+			readonly viewportY?: number
 		}
 	}
 	options: {
