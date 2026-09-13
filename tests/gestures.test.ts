@@ -1003,17 +1003,23 @@ describe('attachLongPressGesture', () => {
 	function mount(
 		cols = 80,
 		rows = 24,
+		isDrawerOpen: () => boolean = () => false,
 	): {
 		screen: HTMLElement
 		term: ReturnType<typeof mockTerminal> & { cols: number; rows: number }
 		sent: string[]
 		lock: ReturnType<typeof createGestureLock>
+		setMouseReportingActive: (active: boolean) => void
 	} {
 		const sent: string[] = []
+		let mouseReportingActive = true
 		const term = {
 			...mockTerminal(),
 			cols,
 			rows,
+			get isMouseReportingActive() {
+				return mouseReportingActive
+			},
 			input(data: string) {
 				sent.push(data)
 			},
@@ -1021,8 +1027,16 @@ describe('attachLongPressGesture', () => {
 		const lock = createGestureLock()
 		const screen = makeScreen(800, 480)
 		document.body.appendChild(screen)
-		attachLongPressGesture(term, lock)
-		return { screen, term, sent, lock }
+		attachLongPressGesture(term, lock, isDrawerOpen)
+		return {
+			screen,
+			term,
+			sent,
+			lock,
+			setMouseReportingActive(active) {
+				mouseReportingActive = active
+			},
+		}
 	}
 
 	beforeEach(() => {
@@ -1091,6 +1105,23 @@ describe('attachLongPressGesture', () => {
 			makeTouch(screen, 400, 240, 0),
 			makeTouch(screen, 420, 260, 1),
 		])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		expect(sent).toEqual([])
+	})
+
+	test('does not send when SGR mouse reporting is disabled', () => {
+		const { screen, sent, setMouseReportingActive } = mount()
+		setMouseReportingActive(false)
+		const touch = makeTouch(screen, 400, 240)
+		dispatchGesture(screen, 'touchstart', [touch])
+		vi.advanceTimersByTime(LONG_PRESS_MS)
+		expect(sent).toEqual([])
+	})
+
+	test('does not send while the drawer is open', () => {
+		const { screen, sent } = mount(80, 24, () => true)
+		const touch = makeTouch(screen, 400, 240)
+		dispatchGesture(screen, 'touchstart', [touch])
 		vi.advanceTimersByTime(LONG_PRESS_MS)
 		expect(sent).toEqual([])
 	})

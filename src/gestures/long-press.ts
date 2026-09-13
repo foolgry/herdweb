@@ -23,8 +23,17 @@ function preventContextMenu(e: Event): void {
 	e.preventDefault()
 }
 
+/** SGR reports are safe only while xterm is actively listening for SGR mouse input. */
+function isSgrMouseReportingEnabled(term: XTerminal): boolean {
+	return term.isMouseReportingActive === true
+}
+
 /** Attach long-press → SGR right-click on the xterm screen */
-export function attachLongPressGesture(term: XTerminal, lock: GestureLock): void {
+export function attachLongPressGesture(
+	term: XTerminal,
+	lock: GestureLock,
+	isDrawerOpen: () => boolean,
+): void {
 	let timer: ReturnType<typeof setTimeout> | null = null
 	let startX = 0
 	let startY = 0
@@ -57,6 +66,8 @@ export function attachLongPressGesture(term: XTerminal, lock: GestureLock): void
 		const screen = screenEl
 		if (!sessionGuard || !sessionGuard()) return
 		if (!touch || !screen) return
+		if (isDrawerOpen()) return
+		if (!isSgrMouseReportingEnabled(term)) return
 		if (!tryLock(lock, 'long-press')) return
 		claimed = true
 		const cell = touchToCell(touch, screen, term)
@@ -68,6 +79,7 @@ export function attachLongPressGesture(term: XTerminal, lock: GestureLock): void
 	function onTouchStart(e: Event): void {
 		if (!(e instanceof TouchEvent)) return
 		abort()
+		if (isDrawerOpen()) return
 		if (e.touches.length !== 1) return
 		const touch = e.touches[0]
 		if (!touch) return
@@ -109,6 +121,7 @@ export function attachLongPressGesture(term: XTerminal, lock: GestureLock): void
 			return
 		}
 		screenEl = screen
+		document.body.classList.add('wt-long-press-enabled')
 		screen.addEventListener('touchstart', onTouchStart, { passive: true })
 		screen.addEventListener('touchmove', onTouchMove, { passive: true })
 		screen.addEventListener('touchend', onTouchEnd, { passive: true })
