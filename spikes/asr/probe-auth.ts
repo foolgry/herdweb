@@ -8,11 +8,11 @@
  *         legacy-query-bigasr-duration | end-variant | opus | protocol-error |
  *         business-error | all
  *
- * 密钥只从 X_API_KEY 或主仓 spikes/asr/.env.local 读取。所有输出物只写 origin、
- * query 参数名、帧索引和摘要，不写密钥或完整带参 URL。
+ * 密钥只从 X_API_KEY 环境变量读取；改用密钥文件时须设 ASR_MAIN_ENV 指向它（本仓不写死路径）。
+ * 所有输出物只写 origin、query 参数名、帧索引和摘要，不写密钥或完整带参 URL。
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync, gzipSync } from 'node:zlib'
@@ -24,7 +24,7 @@ const FIXTURE_ROOT = join(REPO_ROOT, 'tests', 'fixtures', 'asr')
 const ORIGIN = 'wss://openspeech.bytedance.com'
 const ASYNC_ENDPOINT = `${ORIGIN}/api/v3/sauc/bigmodel_async`
 const LEGACY_ENDPOINT = `${ORIGIN}/api/v3/sauc/bigmodel`
-const MAIN_ENV = '/home/zlx/projects/oss/remobi/spikes/asr/.env.local'
+const MAIN_ENV = process.env.ASR_MAIN_ENV
 const RESOURCE_IDS = {
 	seedasrDuration: 'volc.seedasr.sauc.duration',
 	seedasrConcurrent: 'volc.seedasr.sauc.concurrent',
@@ -108,7 +108,10 @@ interface ProbeResult {
 
 function loadKeys(): Keys {
 	let apiKey = process.env.X_API_KEY ?? ''
-	if (!apiKey && existsSync(MAIN_ENV)) {
+	if (!apiKey) {
+		if (!MAIN_ENV) {
+			throw new Error('缺少 X_API_KEY；改用密钥文件时必须设置 ASR_MAIN_ENV 指向该文件')
+		}
 		const lines = readFileSync(MAIN_ENV, 'utf8').split(/\r?\n/)
 		for (const line of lines) {
 			const match = line.match(/^\s*X_API_KEY\s*=\s*(.*?)\s*$/)
@@ -117,7 +120,7 @@ function loadKeys(): Keys {
 		}
 	}
 	if (!apiKey) {
-		throw new Error('缺少 X_API_KEY（环境变量或主仓 spikes/asr/.env.local）')
+		throw new Error('缺少 X_API_KEY（环境变量，或 ASR_MAIN_ENV 指向的密钥文件）')
 	}
 	return { apiKey }
 }
