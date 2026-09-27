@@ -3,7 +3,7 @@
 **Status:** Applied (AGENTS.md rewrite landed)
 **Base:** `a3a29e880d516ebb34c5cc2bbf8a2e0d7ba73da2`
 **源文件:** 仓根 `AGENTS.md` 由 13837B 瘦到 5297B（`wc -c`）；`CLAUDE.md` 仍为指向它的软链。
-**配方:** [规则文件预算 · 三问准入](/home/zlx/projects/personal/agent-config/docs/guides/rules-budget.md)
+**配方:** `agent-config` 仓 `docs/guides/rules-budget.md`「规则文件预算 · 三问准入」（私有仓，不在本仓链接）
 
 三问：这条每个会话都需要吗？能从代码/README/git log 推断吗？现在还成立吗？不全过则搬 `docs/` 留指针或删除。拿不准的标「保留」并注明存疑。
 
