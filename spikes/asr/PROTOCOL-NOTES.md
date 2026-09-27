@@ -6,7 +6,7 @@
 
 主端点：`wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async`。
 
-密钥只读取 `X_API_KEY`（优先环境变量，其次只读主仓绝对路径 `/home/zlx/projects/oss/remobi/spikes/asr/.env.local`），不再读取旧版 `VOLC_APP_KEY` / `VOLC_ACCESS_KEY`。输出只打印 endpoint、resourceId、鉴权方式和 query 参数名。
+密钥只读取 `X_API_KEY` 环境变量（改用密钥文件时设 `ASR_MAIN_ENV` 指向该文件，本仓不写死路径），不再读取旧版 `VOLC_APP_KEY` / `VOLC_ACCESS_KEY`。输出只打印 endpoint、resourceId、鉴权方式和 query 参数名。
 
 | 探针候选 | 实跑结果 | 证据 |
 | --- | --- | --- |

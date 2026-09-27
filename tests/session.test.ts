@@ -146,10 +146,10 @@ describe('SharedTerminalSession', () => {
 	test('buildSessionEnv strips HERDR-prefixed variables before launching the command', () => {
 		const env = buildSessionEnv({
 			SHELL: '/bin/zsh',
-			HOME: '/home/user',
+			HOME: '/tmp/herdweb-fixture',
 			PATH: '/usr/bin',
 			HERDR_SESSION: 'main',
-			HERDR_SOCKET_PATH: '/Users/x/.config/herdr/sessions/main/herdr.sock',
+			HERDR_SOCKET_PATH: '/tmp/herdweb-fixture/.config/herdr/sessions/main/herdr.sock',
 			HERDR_PANE_ID: 'w1:p1',
 			HERDR_TAB_ID: 'w1:t1',
 			HERDR_WORKSPACE_ID: 'w1',
@@ -157,7 +157,7 @@ describe('SharedTerminalSession', () => {
 		})
 
 		expect(env.SHELL).toBe('/bin/zsh')
-		expect(env.HOME).toBe('/home/user')
+		expect(env.HOME).toBe('/tmp/herdweb-fixture')
 		expect(env.PATH).toBe('/usr/bin')
 		expect(env.TERM).toBe('xterm-256color')
 		expect('HERDR_SESSION' in env).toBe(false)

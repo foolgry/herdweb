@@ -21,12 +21,13 @@ UNIT_LINES="$(sed -e 's/\r$//' \
 has() { grep -qxF -- "$1" <<<"$UNIT_LINES" || fail "$2"; }
 lacks() { grep -qF -- "$1" <<<"$UNIT_LINES" && fail "$2"; return 0; }
 
-has 'WorkingDirectory=/home/zlx/projects/oss/herdweb' 'debug path must be canonical main repo'
-has 'ExecStart=/home/zlx/.local/share/fnm/aliases/default/bin/pnpm exec tsx cli.ts serve --host 127.0.0.1 --port 7691 --base-path /herdweb --config /home/zlx/projects/oss/herdweb/.omo/herdweb-debug.config.ts' 'debug command contract changed'
-has 'Environment=PATH=/home/zlx/.local/share/fnm/aliases/default/bin:/home/zlx/.local/bin:/usr/local/bin:/usr/bin:/bin' 'debug PATH must use fnm default alias'
+has 'WorkingDirectory=%h/projects/oss/herdweb' 'debug path must be canonical main repo'
+has 'ExecStart=%h/.local/share/fnm/aliases/default/bin/pnpm exec tsx cli.ts serve --host 127.0.0.1 --port 7691 --base-path /herdweb --config %h/projects/oss/herdweb/.omo/herdweb-debug.config.ts' 'debug command contract changed'
+has 'Environment=PATH=%h/.local/share/fnm/aliases/default/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin' 'debug PATH must use fnm default alias'
 lacks '[Install]' 'debug unit must not have [Install]'
 lacks 'serve-prod.sh' 'debug unit must not require main branch'
 lacks '0.0.0.0' 'debug unit must remain loopback-only'
+lacks '/home/' 'debug unit must not embed an absolute home path (use %h)'
 lacks '--port 7681' 'debug unit must not occupy production port'
 grep -E -- 'systemctl --user (enable|enable --now|start)' "$ROOT/scripts/install-debug.sh" >/dev/null && fail 'debug installer must not enable or start the unit'
 printf 'PASS: debug unit and non-enabling installer contracts\n'

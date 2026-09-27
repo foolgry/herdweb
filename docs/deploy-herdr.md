@@ -120,10 +120,10 @@ scripts/install-prod.sh
 ## Tailscale 调试
 
 调试 unit 不使用 `serve-prod.sh`；现有 unit 的 `WorkingDirectory`、`pnpm exec tsx cli.ts` 入口和 config 均固定到主仓
-`/home/zlx/projects/oss/herdweb`，从 worktree 运行 installer 也不会切换到该 worktree。安装只复制 unit 并 daemon-reload，不 enable、不 start：
+`~/projects/oss/herdweb`（unit 内写 `%h/projects/oss/herdweb`，`%h` 由 systemd 展开为家目录），从 worktree 运行 installer 也不会切换到该 worktree。安装只复制 unit 并 daemon-reload，不 enable、不 start：
 
 ```bash
-cd /home/zlx/projects/oss/herdweb
+cd ~/projects/oss/herdweb
 scripts/install-debug.sh
 systemctl --user start herdweb-debug.service
 systemctl --user status herdweb-debug.service
@@ -135,12 +135,12 @@ systemctl --user status herdweb-debug.service
 systemctl --user stop herdweb-debug.service
 ```
 
-调试 unit 使用 `/home/zlx/projects/oss/herdweb/.omo/herdweb-debug.config.ts`，密钥只放该本地
+调试 unit 使用 `~/projects/oss/herdweb/.omo/herdweb-debug.config.ts`，密钥只放该本地
 配置或本机环境中，不写入 git。
 
 本机多目标调试实例（临时真机验收入口，不替换上面的 `herdweb-debug.service` 安装说明）：
 
-- unit：`herdweb-debug-multitarget.service`，指向主仓 `/home/zlx/projects/oss/herdweb`，
+- unit：`herdweb-debug-multitarget.service`，指向主仓 `~/projects/oss/herdweb`，
   `127.0.0.1:7691`，`--base-path /herdweb`。生产 `herdweb.service` / `7681` 未动。
 - 配置：主仓 ignored `.omo/herdweb-debug.config.ts`。默认 `local-dev`。三条扁平 target：
   - `local-dev` / `Local · Dev` / `herdr --session herdweb-dev`
