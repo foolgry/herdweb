@@ -4,6 +4,7 @@ import type { HookRegistry } from '../hooks/registry'
 import type { ConnectionStatus, HerdwebConfig, InputActionResult, XTerminal } from '../types'
 import { haptic } from '../util/haptic'
 import { conditionalFocus, isKeyboardOpen } from '../util/keyboard'
+import { randomId } from '../util/random-id'
 import { onTap } from '../util/tap'
 import { createAttachmentGuard } from '../util/terminal'
 import { type AsrPreview, type ComposerPending, createAsrPreview } from './asr-preview'
@@ -637,7 +638,7 @@ export function createMicController(options: MicControllerOptions): MicControlle
 				return
 			}
 			const submission: ComposerPending = {
-				id: crypto.randomUUID(),
+				id: randomId(),
 				sessionId,
 				sourceText,
 				data,

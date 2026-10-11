@@ -2,6 +2,7 @@ import { joinBasePath } from '../base-path'
 import { X_HERDWEB_ATTACHMENT_ID_HEADER } from '../session-protocol'
 import type { InputActionResult, XTerminal } from '../types'
 import { el } from '../util/dom'
+import { randomId } from '../util/random-id'
 import { onTap } from '../util/tap'
 import { showToast } from '../util/toast'
 
@@ -35,7 +36,7 @@ export interface ImageDropController {
 export function createImageDropController(deps: ImageDropControllerDeps): ImageDropController {
 	const fetchFn = deps.fetchFn ?? fetch
 	const clipboard = deps.clipboard ?? navigator.clipboard
-	const newActionId = deps.createActionId ?? (() => crypto.randomUUID())
+	const newActionId = deps.createActionId ?? (() => randomId())
 	const ackTimeoutMs = deps.ackTimeoutMs ?? IMAGE_DROP_ACK_TIMEOUT_MS
 	const toast = deps.showToastFn ?? showToast
 	const term = deps.term

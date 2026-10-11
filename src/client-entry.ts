@@ -28,6 +28,7 @@ import type {
 	XTerminal,
 } from './types'
 import { el } from './util/dom'
+import { randomId } from './util/random-id'
 import { onTap } from './util/tap'
 
 /**
@@ -429,7 +430,7 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 
 	function beginAttach(myEpoch: number, nextTargetId: string, cols: number, rows: number): void {
 		if (myEpoch !== currentEpoch || socket?.readyState !== WebSocket.OPEN) return
-		const requestId = crypto.randomUUID()
+		const requestId = randomId()
 		targetId = nextTargetId
 		attachRequestId = requestId
 		attachmentId = null
@@ -783,7 +784,7 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 		) {
 			return
 		}
-		const nonce = crypto.randomUUID()
+		const nonce = randomId()
 		heartbeatPingId = nonce
 		socket.send(serialiseClientMessage({ type: 'ping', nonce }))
 		heartbeatDeadlineTimer = window.setTimeout(() => {
@@ -1135,7 +1136,7 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 		socket.send(
 			serialiseClientMessage({
 				type: 'restart-target',
-				requestId: crypto.randomUUID(),
+				requestId: randomId(),
 				targetId: restartTargetId,
 			}),
 		)
@@ -1177,7 +1178,7 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 			return
 		}
 		stopHeartbeat()
-		const nonce = crypto.randomUUID()
+		const nonce = randomId()
 		heartbeatPingId = nonce
 		resumeProbeInFlight = true
 		socket.send(serialiseClientMessage({ type: 'ping', nonce }))
