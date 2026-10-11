@@ -305,12 +305,27 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 	// insertText 事件插入文本，正好落进 xterm `_inputEvent` 的 `!composed || !keyDownSeen`
 	// 盲区而被静默丢弃——系统输入法走 keypress 路径，所以只有第三方输入法输入不上屏。
 	// 在捕获阶段把这类事件标成 composed:false，交给 xterm 自己继续处理；它剩下的
-	// `keyPressHandled` 判断仍能防止普通输入被重复发送。监听挂在容器（textarea 的祖先）
-	// 上，才能在 xterm 自身的 textarea 监听之前执行。
+	// `keyPressHandled` 判断仍能防止普通输入被重复发送。
+	//
+	// 补发只在两个条件同时成立时进行：① 事件是带数据的 insertText 且 composed 为真
+	// （xterm 的盲区）；② **本次事件没有改变 textarea 的值**。第 ② 条是必须的：输入法
+	// 把文本写进 textarea 时，xterm 自己的 textarea diff 路径会发出正确增量（逐字打字
+	// 是整段、语音是逐段累积文本，diff 都能还原成增量），此时再补发事件自带的 data，
+	// 语音的累积文本就会被整段重复一遍。
+	// 监听挂在容器（textarea 的祖先）上，才能在 xterm 自身的 textarea 监听之前执行。
+	let lastTextareaValue = term.textarea?.value ?? ''
 	container.addEventListener(
 		'input',
 		(event: Event) => {
 			if (event.target !== term.textarea) return
+			const textarea = term.textarea
+			if (!textarea) return
+			// 输入法把文本写进了 textarea 时，xterm 的 textarea diff 路径会发出正确增量
+			// （逐字打字是整段、语音是累积文本，diff 都能还原成正确的增量）。此时若再补发
+			// 事件自带的 data，语音的累积文本就会被整段重复一遍。
+			const valueChanged = textarea.value !== lastTextareaValue
+			lastTextareaValue = textarea.value
+			if (valueChanged) return
 			const input = event as InputEvent
 			if (input.inputType !== 'insertText' || !input.data || !input.composed) return
 			Object.defineProperty(input, 'composed', { value: false, configurable: true })
