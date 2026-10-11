@@ -301,6 +301,22 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 	})
 	const fitAddon = attachOptionalAddons(term)
 	term.open(container)
+	// iOS 第三方输入法（微信输入法、豆包输入法）先发一个 keydown，再以 composed:true 的
+	// insertText 事件插入文本，正好落进 xterm `_inputEvent` 的 `!composed || !keyDownSeen`
+	// 盲区而被静默丢弃——系统输入法走 keypress 路径，所以只有第三方输入法输入不上屏。
+	// 在捕获阶段把这类事件标成 composed:false，交给 xterm 自己继续处理；它剩下的
+	// `keyPressHandled` 判断仍能防止普通输入被重复发送。监听挂在容器（textarea 的祖先）
+	// 上，才能在 xterm 自身的 textarea 监听之前执行。
+	container.addEventListener(
+		'input',
+		(event: Event) => {
+			if (event.target !== term.textarea) return
+			const input = event as InputEvent
+			if (input.inputType !== 'insertText' || !input.data || !input.composed) return
+			Object.defineProperty(input, 'composed', { value: false, configurable: true })
+		},
+		true,
+	)
 	document.documentElement.style.background = config.theme.background
 	document.body.style.background = config.theme.background
 	fitAddon.fit()
