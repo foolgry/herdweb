@@ -1174,7 +1174,11 @@ function main(config: ClientConfigProjection, version: string | undefined): void
 	}
 	// xterm handles real keyboard/touch input locally; forward it to the shared PTY.
 	term.onData((data) => {
-		send({ type: 'input', data: termBridge.transformStickyCtrlInput(data) })
+		// iOS 输入法（微信等）按空格会把 U+00A0 写进 textarea，xterm 忠实转发后终端里
+		// 得到的是不换行空格——肉眼与空格无异，却会让 `ls -la` 这类命令静默失败。
+		// 统一归一化成普通空格。
+		const normalised = termBridge.transformStickyCtrlInput(data).replace(/\u00a0/g, ' ')
+		send({ type: 'input', data: normalised })
 	})
 	window.term = termBridge
 	window.__herdwebResize = syncSize
